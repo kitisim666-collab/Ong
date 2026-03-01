@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Support Our Cause</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .container {
+      max-width: 420px;
+      margin: auto;
+      padding: 24px;
+      background: #ffffff;
+      margin-top: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    img {
+      width: 100%;
+      max-width: 280px;
+      margin: 20px 0;
+    }
+    input, button {
+      padding: 8px;
+      margin: 4px 0;
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    #chatBox {
+      height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+      background: #fafafa;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    #onlineList {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #f0f0f0;
+      min-height: 40px;
+      margin-bottom: 10px;
+    }
+    .online-user {
+      background: #4CAF50;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.9em;
+    }
+    .online-count {
+      font-weight: normal;
+      color: #666;
+    }
+    hr {
+      margin: 20px 0;
+    }
+    /* Music player styling */
+    audio {
+      width: 100%;
+      margin: 10px 0 20px 0;
+      border-radius: 30px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>Make a Donation ❤️</h1>
+  <p>Scan the QR code below</p>
+  <a href="https://ibb.co/n8qjFHHZ"><img src="https://i.ibb.co/jZ9DSccB/1771566910279-100-edit-21368100609087.jpg" alt="1771566910279-100-edit-21368100609087" border="0"></a>
+     Donation QR Code
+
+  <!-- 🎵 MUSIC PLAYER ADDED HERE -->
+  <h3>🎵 Background Music</h3>
+
+<audio id="bgMusic" autoplay loop muted playsinline>
+  <source src="DJ‘KC 跳楼机 ● 分开以后 ● 如果你也是听说 ● 一路向北 MANYAO MIX 2K25 [kLQdBgfy0WE].mp3" type="audio/mpeg">
+</audio>
+
+<button onclick="toggleMusic()">🔊 Music On / Off</button>
+
+  <hr>
+
+  <!-- PHOTO UPLOAD -->
+  <h3>Upload Proof of Donation 📷</h3>
+  <input type="file" accept="image/*" onchange="previewImage(event)">
+  <img id="preview" style="display:none; max-width:100%; margin-top:10px;">
+
+  <hr>
+
+  <!-- ONLINE USERS SECTION -->
+  <h3>Online Users <span id="onlineCount" class="online-count">(0)</span></h3>
+  <div id="onlineList"></div>
+
+  <!-- CHAT ROOM -->
+  <h3>Live Chat 💬</h3>
+  <input id="username" placeholder="Your name">
+  <button onclick="joinChat()">Set Name & Join</button>
+
+  <div id="chatBox"></div>
+  <input id="message" placeholder="Type message">
+  <button onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+  /* =========================
+     IMAGE PREVIEW
+  ========================== */
+  function previewImage(event) {
+    const img = document.getElementById("preview");
+    img.src = URL.createObjectURL(event.target.files[0]);
+    img.style.display = "block";
+  }
+
+  /* =========================
+     FIREBASE CONFIG
+     🔴 REPLACE WITH YOUR OWN CONFIG
+  ========================== */
+  var firebaseConfig = {
+    apiKey: "PASTE_HERE",
+    authDomain: "PASTE_HERE",
+    databaseURL: "PASTE_HERE",
+    projectId: "PASTE_HERE",
+    storageBucket: "PASTE_HERE",
+    messagingSenderId: "PASTE_HERE",
+    appId: "PASTE_HERE"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  var database = firebase.database();
+
+  /* =========================
+     PRESENCE (ONLINE USERS)
+  ========================== */
+  let currentPresenceKey = null;  // track this session's presence entry
+
+  // Join chat: set name and appear online
+  function joinChat() {
+    const name = document.getElementById("username").value.trim();
+    if (!name) {
+      alert("Please enter your name");
+      return;
+    }
+
+    // Remove previous presence if exists (same tab)
+    if (currentPresenceKey) {
+      database.ref('online/' + currentPresenceKey).remove();
+      currentPresenceKey = null;
+    }
+
+    // Create new presence entry
+    const newPresenceRef = database.ref('online').push();
+    currentPresenceKey = newPresenceRef.key;
+    newPresenceRef.set({
+      name: name,
+      online: true
+    });
+
+    // Automatically remove this entry when user disconnects
+    newPresenceRef.onDisconnect().remove();
+  }
+
+  // Listen for changes to online users and update UI
+  database.ref('online').on('value', (snapshot) => {
+    const onlineDiv = document.getElementById('onlineList');
+    const countSpan = document.getElementById('onlineCount');
+    const data = snapshot.val() || {};
+
+    const users = Object.values(data).map(entry => entry.name);
+    countSpan.textContent = `(${users.length})`;
+
+    // Render each user as a "pill"
+    onlineDiv.innerHTML = users.map(name => 
+      `<span class="online-user">${escapeHTML(name)}</span>`
+    ).join('');
+
+    // If no users, show placeholder
+    if (users.length === 0) {
+      onlineDiv.innerHTML = '<em style="color:#888;">No one online</em>';
+    }
+  });
+
+  // Helper to escape HTML (prevent XSS from usernames)
+  function escapeHTML(str) {
+    return str.replace(/[&<>"]/g, function(match) {
+      if (match === '&') return '&amp;';
+      if (match === '<') return '&lt;';
+      if (match === '>') return '&gt;';
+      if (match === '"') return '&quot;';
+      return match;
+    });
+  }
+
+  /* =========================
+     CHAT FUNCTIONS
+  ========================== */
+  function sendMessage() {
+    const name = document.getElementById("username").value.trim();
+    const msg = document.getElementById("message").value.trim();
+
+    if (!name) {
+      alert("Please enter your name and click 'Set Name & Join'");
+      return;
+    }
+    if (!msg) return;
+
+    database.ref("messages").push({
+      user: name,
+      text: msg,
+      timestamp: Date.now()
+    });
+
+    document.getElementById("message").value = "";
+  }
+
+  // Load chat messages
+  database.ref("messages").on("child_added", function(snapshot) {
+    const data = snapshot.val();
+    const chatBox = document.getElementById("chatBox");
+
+    chatBox.innerHTML += `<p><strong>${escapeHTML(data.user)}:</strong> ${escapeHTML(data.text)}</p>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+
+  // Optional: auto-join if name already filled (you can remove this)
+  window.onload = function() {
+    const nameInput = document.getElementById("username");
+    if (nameInput.value.trim() !== "") {
+      joinChat();
+    }
+  };
+</script>
+<script>
+  const bgMusic = document.getElementById("bgMusic");
+
+  function enableSound() {
+    bgMusic.muted = false;
+    bgMusic.play();
+    document.removeEventListener("click", enableSound);
+    document.removeEventListener("touchstart", enableSound);
+  }
+
+  function toggleMusic() {
+    if (bgMusic.paused) {
+      bgMusic.muted = false;
+      bgMusic.play();
+    } else {
+      bgMusic.pause();
+    }
+  }
+
+  document.addEventListener("click", enableSound);
+  document.addEventListener("touchstart", enableSound);
+</script>
+</body>
+</html>
